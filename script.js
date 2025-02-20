@@ -34,110 +34,183 @@ class MobileMenu {
 }
 
 // Classe pour gérer le carousel
-class CustomCarousel {
+class Carousel {
   constructor() {
     this.carousel = document.getElementById("categoryCarousel");
     this.carouselInner = this.carousel.querySelector(".carousel-inner");
     this.items = Array.from(this.carousel.querySelectorAll(".carousel-item"));
-    this.totalItems = this.items.length;
-    this.currentPosition = 0;
+    this.prevBtn = this.carousel.querySelector(".carousel-control-prev");
+    this.nextBtn = this.carousel.querySelector(".carousel-control-next");
 
-    // Configuration
-    this.itemWidth = this.getItemWidth();
+    this.currentIndex = 0;
+    this.isMobile = window.innerWidth <= 576;
+    this.isTablet = window.innerWidth <= 1024 && window.innerWidth > 576;
     this.itemsPerView = this.getItemsPerView();
-    this.slideInterval = 5000;
+    this.itemWidth = 0;
+    this.isAnimating = false;
 
     this.init();
   }
 
   init() {
-    this.setupControls();
-    this.setupResponsive();
-    this.updateItemsWidth();
-  }
-
-  getItemWidth() {
-    const item = this.items[0];
-    const style = window.getComputedStyle(item);
-    return (
-      item.offsetWidth +
-      parseInt(style.marginLeft) +
-      parseInt(style.marginRight)
-    );
+    if (!this.isMobile) {
+      this.calculateItemWidth();
+      this.setupControls();
+      this.setupEventListeners();
+      this.checkButtonsVisibility();
+    }
   }
 
   getItemsPerView() {
-    return window.innerWidth < 768 ? 1 : window.innerWidth < 1024 ? 2 : 3;
+    if (this.isMobile) return 1;
+    if (this.isTablet) return 2;
+    return 3;
   }
 
-  updateItemsWidth() {
-    const width = `calc(${100 / this.itemsPerView}% - 54px)`;
-    this.items.forEach((item) => (item.style.width = width));
+  calculateItemWidth() {
+    if (this.isMobile) return;
+
+    const item = this.items[0];
+    const style = window.getComputedStyle(item);
+    const gap = parseInt(window.getComputedStyle(this.carouselInner).gap);
+
+    this.itemWidth = item.offsetWidth + gap;
   }
 
-  goToSlide(index) {
-    this.carouselInner.style.transform = `translateX(${this.currentPosition}px)`;
-    this.updateIndicators(index * this.itemsPerView);
+  setupEventListeners() {
+    // Gestion du redimensionnement avec debounce
+    let resizeTimeout;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        const wasMobile = this.isMobile;
+        const wasTablet = this.isTablet;
+
+        this.isMobile = window.innerWidth <= 576;
+        this.isTablet = window.innerWidth <= 1024 && window.innerWidth > 576;
+
+        if (wasMobile !== this.isMobile || wasTablet !== this.isTablet) {
+          this.itemsPerView = this.getItemsPerView();
+          this.calculateItemWidth();
+          this.resetPosition();
+          this.checkButtonsVisibility();
+        }
+      }, 100);
+    });
+
+    // Gestion du swipe sur mobile
+    if ("ontouchstart" in window) {
+      let touchStartX = 0;
+      let touchEndX = 0;
+
+      this.carousel.addEventListener(
+        "touchstart",
+        (e) => {
+          touchStartX = e.changedTouches[0].screenX;
+        },
+        { passive: true }
+      );
+
+      this.carousel.addEventListener(
+        "touchend",
+        (e) => {
+          touchEndX = e.changedTouches[0].screenX;
+          this.handleSwipe(touchStartX, touchEndX);
+        },
+        { passive: true }
+      );
+    }
   }
 
-  slide(direction) {
-    const maxPosition = -(this.totalItems - this.itemsPerView) * this.itemWidth;
+  handleSwipe(startX, endX) {
+    if (this.isMobile) return;
 
-    if (direction === "next") {
-      this.currentPosition -= this.itemWidth;
-      if (this.currentPosition < maxPosition) {
-        this.currentPosition = 0;
-      }
-    } else {
-      this.currentPosition += this.itemWidth;
-      if (this.currentPosition > 0) {
-        this.currentPosition = maxPosition;
+    const swipeThreshold = 50;
+    const diff = startX - endX;
+
+    if (Math.abs(diff) > swipeThreshold) {
+      if (diff > 0) {
+        this.slide("next");
+      } else {
+        this.slide("prev");
       }
     }
-
-    this.carouselInner.style.transform = `translateX(${this.currentPosition}px)`;
   }
 
   setupControls() {
-    const prevButton = this.carousel.querySelector(".carousel-control-prev");
-    const nextButton = this.carousel.querySelector(".carousel-control-next");
-
-    prevButton.addEventListener("click", () => {
-      this.slide("prev");
-    });
-
-    nextButton.addEventListener("click", () => {
-      this.slide("next");
-    });
+    if (this.prevBtn) {
+      this.prevBtn.addEventListener(
+        "click",
+        () => !this.isAnimating && this.slide("prev")
+      );
+    }
+    if (this.nextBtn) {
+      this.nextBtn.addEventListener(
+        "click",
+        () => !this.isAnimating && this.slide("next")
+      );
+    }
   }
 
-  startAutoplay() {
-    this.autoplayTimer = setInterval(
-      () => this.slide("next"),
-      this.slideInterval
-    );
+  slide(direction) {
+    if (this.isMobile || this.isAnimating) return;
+
+    this.isAnimating = true;
+    const maxIndex = this.items.length - this.itemsPerView;
+
+    if (direction === "next" && this.currentIndex < maxIndex) {
+      this.currentIndex++;
+    } else if (direction === "prev" && this.currentIndex > 0) {
+      this.currentIndex--;
+    } else {
+      this.isAnimating = false;
+      return;
+    }
+
+    this.updateCarouselPosition();
+    this.checkButtonsVisibility();
+
+    setTimeout(() => {
+      this.isAnimating = false;
+    }, 500);
   }
 
-  stopAutoplay() {
-    clearInterval(this.autoplayTimer);
+  updateCarouselPosition() {
+    if (this.isMobile) return;
+
+    const translateX = -this.currentIndex * this.itemWidth;
+    this.carouselInner.style.transform = `translateX(${translateX}px)`;
   }
 
-  setupResponsive() {
-    window.addEventListener("resize", () => {
-      const newItemsPerView = this.getItemsPerView();
-      if (newItemsPerView !== this.itemsPerView) {
-        this.itemsPerView = newItemsPerView;
-        this.updateItemsWidth();
-        this.itemWidth = this.getItemWidth();
-        this.currentPosition = 0;
-        this.carouselInner.style.transform = `translateX(0)`;
-      }
-    });
+  checkButtonsVisibility() {
+    if (this.isMobile) {
+      if (this.prevBtn) this.prevBtn.style.display = "none";
+      if (this.nextBtn) this.nextBtn.style.display = "none";
+      return;
+    }
+
+    if (this.prevBtn) {
+      this.prevBtn.style.display = this.currentIndex > 0 ? "flex" : "none";
+    }
+
+    if (this.nextBtn) {
+      const maxIndex = this.items.length - this.itemsPerView;
+      this.nextBtn.style.display =
+        this.currentIndex < maxIndex ? "flex" : "none";
+    }
+  }
+
+  resetPosition() {
+    this.currentIndex = 0;
+    if (!this.isMobile) {
+      this.carouselInner.style.transform = "translateX(0)";
+      this.checkButtonsVisibility();
+    }
   }
 }
 
 // Initialisation au chargement de la page
 document.addEventListener("DOMContentLoaded", () => {
   new MobileMenu();
-  new CustomCarousel();
+  new Carousel();
 });
