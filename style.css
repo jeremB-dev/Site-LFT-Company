@@ -473,9 +473,6 @@ footer {
 }
 
 /*************** Media Queries ****************/
-@media (max-width: 2560px) {
-    
-}
 
 @media (max-width: 1024px) {
     header {
@@ -484,7 +481,7 @@ footer {
     
     .carousel {
         padding: 20px;
-        overflow: visible;
+        overflow: hidden;
     }
 
     .carousel-inner {
@@ -494,6 +491,7 @@ footer {
         gap: 25px;
         padding: 0;
         transform: none !important;
+        margin: 0;
     }
 
     .carousel-item {
