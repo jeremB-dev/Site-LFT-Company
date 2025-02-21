@@ -489,6 +489,7 @@ footer {
     .carousel-inner {
         display: flex;
         gap: 20px;
+        padding: 0 20px;
     }
 
     .carousel-item {
